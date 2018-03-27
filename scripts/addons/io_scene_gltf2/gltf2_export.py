@@ -46,6 +46,8 @@ def prepare(export_settings):
     export_settings['gltf_use_no_color'] = []
     
     export_settings['gltf_joint_cache'] = {}
+
+    export_settings['gltf_animated_materials'] = []
     
     if not export_settings['gltf_current_frame']:
         bpy.context.scene.frame_set(0)

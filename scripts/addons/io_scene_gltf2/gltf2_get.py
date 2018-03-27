@@ -445,6 +445,19 @@ def get_data_path(data_path):
     return data_path[(index + 1):]
 
 
+def parent_data_path(data_path):
+    """
+    Return Blender data path.
+    """
+
+    index = data_path.rfind('.')
+    
+    if index == -1:
+        return data_path
+    
+    return data_path[:index]
+
+
 def get_scalar(default_value, init_value = 0.0):
     """
     Return scalar with a given default/fallback value.
@@ -543,3 +556,23 @@ def get_index(elements, name):
     
     return -1
 
+
+def add_animated_material_path(name, path, export_settings):
+    """
+    Adds the animation path of a primitive's material.export_settings
+    """
+
+    if name is None:
+        return
+
+    if path is None:
+        return
+
+    if export_settings['gltf_animated_materials'] is None:
+        return
+
+    for material in export_settings['gltf_animated_materials']:
+        if material['name'] == name:
+            material['paths'].append(path)
+
+    return

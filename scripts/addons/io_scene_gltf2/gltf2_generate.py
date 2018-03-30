@@ -70,16 +70,14 @@ def generate_material_animation_channel(
         context,
         export_settings,
         glTF,
-        material_animation,
+        blender_material,
         channels,
-        samplers,
-        node_index
+        samplers
 ):
     """
     Helper function for storing animation parameters.
     """
 
-    blender_material = material_animation['blender_material']
     blender_action = None
     if blender_material.node_tree is not None and blender_material.use_nodes:
         blender_action = blender_material.node_tree.animation_data.action
@@ -114,106 +112,96 @@ def generate_material_animation_channel(
                 path_curves[path] = []
             path_curves[path].append(blender_fcurve)
 
-    for start_path in material_animation['paths']:
-        unique_paths = path_curves.keys()
+    material_index = get_material_index(glTF, blender_material.name)
+    start_path = '/materials/' + str(material_index) + '/'
 
-        for unique_path in unique_paths:
-            path = start_path + unique_path
-            curve_list = path_curves[unique_path]
-            interpolation = animate_get_interpolation(export_settings, curve_list)
-            value_data, in_tangent_data, out_tangent_data = animate_value(export_settings, curve_list, interpolation, None, None, None, None)
+    for unique_path in path_curves.keys():
+        path = start_path + unique_path
+        curve_list = path_curves[unique_path]
+        interpolation = animate_get_interpolation(export_settings, curve_list)
+        value_data, in_tangent_data, out_tangent_data = animate_value(export_settings, curve_list, interpolation, None, None, None, None)
 
-            #
+        #
 
-            keys = sorted(value_data.keys())
-            values = []
-            final_keys = []
+        keys = sorted(value_data.keys())
+        values = []
+        final_keys = []
 
-            key_offset = 0.0
-            if len(keys) > 0 and export_settings['gltf_move_keyframes']:
-                key_offset = bpy.context.scene.frame_start / bpy.context.scene.render.fps
+        key_offset = 0.0
+        if len(keys) > 0 and export_settings['gltf_move_keyframes']:
+            key_offset = bpy.context.scene.frame_start / bpy.context.scene.render.fps
 
-            for key in keys:
-                if key - key_offset < 0.0:
-                    continue
+        for key in keys:
+            if key - key_offset < 0.0:
+                continue
 
-                final_keys.append(key - key_offset)
+            final_keys.append(key - key_offset)
 
-                if interpolation == 'CUBICSPLINE':
-                    for i in range(0, len(in_tangent_data[key])):
-                        values.append(in_tangent_data[key][i])
-                for i in range(0, len(value_data[key])):
-                    values.append(value_data[key][i])
-                if interpolation == 'CUBICSPLINE':
-                    for i in range(0, len(out_tangent_data[key])):
-                        values.append(out_tangent_data[key][i])
+            if interpolation == 'CUBICSPLINE':
+                for i in range(0, len(in_tangent_data[key])):
+                    values.append(in_tangent_data[key][i])
+            for i in range(0, len(value_data[key])):
+                values.append(value_data[key][i])
+            if interpolation == 'CUBICSPLINE':
+                for i in range(0, len(out_tangent_data[key])):
+                    values.append(out_tangent_data[key][i])
 
-            #
+        #
 
-            # Data types from size
-            GLTF_DATA_TYPE_FROM_SIZE = {
-                1: GLTF_DATA_TYPE_SCALAR,
-                2: GLTF_DATA_TYPE_VEC2,
-                3: GLTF_DATA_TYPE_VEC3,
-                4: GLTF_DATA_TYPE_VEC4,
-            }
+        # Data types from size
+        GLTF_DATA_TYPE_FROM_SIZE = {
+            1: GLTF_DATA_TYPE_SCALAR,
+            2: GLTF_DATA_TYPE_VEC2,
+            3: GLTF_DATA_TYPE_VEC3,
+            4: GLTF_DATA_TYPE_VEC4,
+        }
 
-            gltf_data_type = GLTF_DATA_TYPE_FROM_SIZE[len(curve_list)]
+        gltf_data_type = GLTF_DATA_TYPE_FROM_SIZE[len(curve_list)]
 
-            count = len(final_keys)
-            sampler = {}
-            sampler['interpolation'] = interpolation
-            if interpolation == 'CONVERSION_NEEDED':
-                sampler['interpolation'] = 'LINEAR'
-            sampler['input'] = create_accessor(
-                operator,
-                context,
-                export_settings,
-                glTF,
-                final_keys,
-                GLTF_COMPONENT_TYPE_FLOAT,
-                count,
-                GLTF_DATA_TYPE_SCALAR,
-                ""
-            )
+        count = len(final_keys)
+        sampler = {}
+        sampler['interpolation'] = interpolation
+        if interpolation == 'CONVERSION_NEEDED':
+            sampler['interpolation'] = 'LINEAR'
+        sampler['input'] = create_accessor(
+            operator,
+            context,
+            export_settings,
+            glTF,
+            final_keys,
+            GLTF_COMPONENT_TYPE_FLOAT,
+            count,
+            GLTF_DATA_TYPE_SCALAR,
+            ""
+        )
 
-            #
+        #
 
-            count = len(values) // len(curve_list)
+        count = len(values) // len(curve_list)
 
-            sampler['output'] = create_accessor(
-                operator,
-                context,
-                export_settings,
-                glTF,
-                values,
-                GLTF_COMPONENT_TYPE_FLOAT,
-                count,
-                gltf_data_type,
-                ""
-            )
+        sampler['output'] = create_accessor(
+            operator,
+            context,
+            export_settings,
+            glTF,
+            values,
+            GLTF_COMPONENT_TYPE_FLOAT,
+            count,
+            gltf_data_type,
+            ""
+        )
 
-            #
+        #
 
-            samplers.append(sampler)
+        samplers.append(sampler)
 
-            channel = {}
+        channel = {}
+        channel['sampler'] = len(samplers) - 1
+        channel['target'] = path
 
-            #
+        # 
 
-            channel['sampler'] = len(samplers) - 1
-
-            #
-            #
-
-            channel['target'] = {
-                'path': path,
-                'node': node_index
-            }
-
-            # 
-
-            channels.append(channel)
+        channels.append(channel)
 
 
 
@@ -899,27 +887,22 @@ def generate_animations(operator,
             continue
         process_mesh_object(blender_object)
 
-        gltf_animated_materials = export_settings['gltf_animated_materials']
-
-        node_index = get_node_index(glTF, blender_object.name)
-        for material_animation in gltf_animated_materials:
-            if blender_object.active_material is not None and material_animation['name'] == blender_object.active_material.name:
-                generate_material_animation_channel(
-                    operator,
-                    context,
-                    export_settings,
-                    glTF,
-                    material_animation,
-                    property_channels,
-                    property_samplers,
-                    node_index
-                )
-
     if export_settings['gltf_bake_skins']:
         for blender_object in filtered_objects:
             if blender_backup_action.get(blender_object.name) is not None:
                 blender_object.animation_data.action = blender_backup_action[blender_object.name]
 
+    gltf_animated_materials = export_settings['gltf_animated_materials']
+    for material_animation in gltf_animated_materials:
+        generate_material_animation_channel(
+            operator,
+            context,
+            export_settings,
+            glTF,
+            material_animation,
+            property_channels,
+            property_samplers
+        )
     #
     #
 
@@ -1371,7 +1354,6 @@ def generate_meshes(operator,
                 # Meshes/primitives without material are allowed.
                 if material >= 0:
                     primitive['material'] = material
-                    add_animated_material_path(internal_primitive['material'], 'mesh/primitives/' + str(len(primitives)) + '/material/', export_settings)
                 else:
                     print_console('WARNING', 'Material ' + internal_primitive[
                         'material'] + ' not found. Please assign glTF 2.0 material or enable Blinn-Phong material in export.')
@@ -2725,11 +2707,7 @@ def generate_materials(operator,
                     materials.append(material)
 
                     if is_animated:
-                        animated_material = {}
-                        animated_material['name'] = blender_material.name
-                        animated_material['paths'] = []
-                        animated_material['blender_material'] = blender_material
-                        export_settings['gltf_animated_materials'].append(animated_material)
+                        export_settings['gltf_animated_materials'].append(blender_material)
 
         else:
 
@@ -2830,11 +2808,7 @@ def generate_materials(operator,
                 materials.append(material)
 
                 if is_animated:
-                    animated_material = {}
-                    animated_material['name'] = blender_material.name
-                    animated_material['paths'] = []
-                    animated_material['blender_material'] = blender_material
-                    export_settings['gltf_animated_materials'].append(animated_material)
+                    export_settings['gltf_animated_materials'].append(blender_material)
 
             else:
 
@@ -2974,11 +2948,7 @@ def generate_materials(operator,
                 materials.append(material)
 
                 if is_animated:
-                    animated_material = {}
-                    animated_material['name'] = blender_material.name
-                    animated_material['paths'] = []
-                    animated_material['blender_material'] = blender_material
-                    export_settings['gltf_animated_materials'].append(animated_material)
+                    export_settings['gltf_animated_materials'].append(blender_material)
 
     #
     #

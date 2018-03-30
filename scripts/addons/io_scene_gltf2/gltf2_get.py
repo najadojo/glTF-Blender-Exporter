@@ -555,24 +555,3 @@ def get_index(elements, name):
         index += 1
     
     return -1
-
-
-def add_animated_material_path(name, path, export_settings):
-    """
-    Adds the animation path of a primitive's material.export_settings
-    """
-
-    if name is None:
-        return
-
-    if path is None:
-        return
-
-    if export_settings['gltf_animated_materials'] is None:
-        return
-
-    for material in export_settings['gltf_animated_materials']:
-        if material['name'] == name:
-            material['paths'].append(path)
-
-    return
